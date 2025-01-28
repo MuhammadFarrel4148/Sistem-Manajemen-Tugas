@@ -2,31 +2,29 @@ const { nanoid } = require('nanoid');
 const tasks = require('./task');
 
 const addTasksHandler = (request, h) => {
-    const { title, description, status, deadline } = request.payload;
+    const { title = "No Title", description = "No Description", status = "To-Do", deadline = new Date().toISOString() } = request.payload || {};
 
-    if(title !== undefined || status !== undefined || deadline !== undefined) {
-        const id = nanoid(16);
-        const createdAt = new Date().toISOString();
-        const updatedAt = createdAt;
+    const id = nanoid(16);
+    const createdAt = new Date().toISOString();
+    const updatedAt = createdAt;
 
-        const newTask = {
-            id, title, description, status, deadline, createdAt, updatedAt,
-        }
+    const newTask = {
+        id, title, description, status, deadline, createdAt, updatedAt,
+    }
 
-        tasks.push(newTask);
-        const task = tasks.filter((task) => task.id === id);
+    tasks.push(newTask);
+    const task = tasks.filter((task) => task.id === id);
 
-        if(task !== undefined) {
-            const response = h.response({
-                status: 'success',
-                message: 'Task berhasil ditambahkan',
-                data: {
-                    NewTask: id,
-                }
-            })
-            response.code(201);
-            return response;
-        }
+    if(task !== undefined) {
+        const response = h.response({
+            status: 'success',
+            message: 'Task berhasil ditambahkan',
+            data: {
+                taskId: id,
+            }
+        })
+        response.code(201);
+        return response;
     }
 
     const response = h.response({
