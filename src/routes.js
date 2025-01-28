@@ -1,4 +1,4 @@
-const { addTasksHandler, getAllTasks, getSpecificTasks, deleteTasks } = require("./handler")
+const { addTasksHandler, getAllTasks, getSpecificTasks, deleteTasks, updateTask } = require("./handler")
 
 const routes = [
     {
@@ -19,7 +19,7 @@ const routes = [
     {
         method: 'PUT',
         path: '/tasks/{taskId}',
-        handler: () => {}
+        handler: updateTask,
     },
     {
         method: 'DELETE',

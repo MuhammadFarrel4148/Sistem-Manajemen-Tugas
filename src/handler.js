@@ -71,6 +71,44 @@ const getSpecificTasks = (request, h) => {
     return response;
 }
 
+const updateTask = (request, h) => {
+    const { title, description, status, deadline } = request.payload;
+    const { taskId } = request.params;
+
+    if(title !== undefined) {
+        const index = tasks.findIndex((task) => task.id === taskId);
+        const updatedAt = new Date().toISOString();
+
+        tasks[index] = {
+            ...tasks[index],
+            title,
+            description,
+            status,
+            deadline,
+            updatedAt,
+        }
+
+        const task = tasks[index];
+
+        const response = h.response({
+            status: 'success',
+            message: 'Catatan berhasil diperbarui',
+            data: {
+                TaskUpdate: { title: task.title, description: task.description, status: task.status, deadline: task.deadline},
+            }
+        })
+        response.code(200);
+        return response;
+    }
+
+    const response = h.response({
+        status: 'fail',
+        message: 'Catatan gagal diperbarui',
+    })
+    response.code(400);
+    return response;
+}
+
 const deleteTasks = (request, h) => {
     const { taskId } = request.params;
     const index = tasks.findIndex((task) => task.id === taskId);
@@ -97,4 +135,4 @@ const deleteTasks = (request, h) => {
     return response;
 }
 
-module.exports = { addTasksHandler, getAllTasks, getSpecificTasks, deleteTasks };
+module.exports = { addTasksHandler, getAllTasks, getSpecificTasks, updateTask, deleteTasks };
