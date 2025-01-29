@@ -7,9 +7,10 @@ const addTasksHandler = (request, h) => {
     const id = nanoid(16);
     const createdAt = new Date().toISOString();
     const updatedAt = createdAt;
+    const formattedDeadline = new Date(deadline).toISOString();
 
     const newTask = {
-        id, title, description, status, deadline, createdAt, updatedAt,
+        id, title, description, status, deadline: formattedDeadline, createdAt, updatedAt,
     }
 
     tasks.push(newTask);
@@ -36,12 +37,19 @@ const addTasksHandler = (request, h) => {
 }
 
 const getAllTasks = (request, h) => {
+    const { title, status } = request.query;
+
+    const filteredBooks = tasks.filter(tasks => 
+        (title !== undefined ? tasks.title.toLowerCase().includes(title.toLowerCase()) : true) &&
+        (status !== undefined ? tasks.status : true)
+    );
+
     const response = h.response({
         status: 'success',
         data: {
-            tasks,
+            tasks: filteredBooks.map(({ title, description, status, deadline }) => ({ title, description, status, deadline })),
         }
-    })
+    });
     response.code(200);
     return response;
 }
@@ -70,41 +78,40 @@ const getSpecificTasks = (request, h) => {
 }
 
 const updateTask = (request, h) => {
-    const { title, description, status, deadline } = request.payload;
     const { taskId } = request.params;
+    const index = tasks.findIndex((task) => task.id === taskId);
+    
+    const { title = tasks[index].title, description = tasks[index].description, status = tasks[index].status, deadline = tasks[index].deadline } = request.payload || {};
+        
+    const updatedAt = new Date().toISOString();
 
-    if(title !== undefined) {
-        const index = tasks.findIndex((task) => task.id === taskId);
-        const updatedAt = new Date().toISOString();
-
-        tasks[index] = {
-            ...tasks[index],
-            title,
-            description,
-            status,
-            deadline,
-            updatedAt,
-        }
-
-        const task = tasks[index];
-
-        const response = h.response({
-            status: 'success',
-            message: 'Catatan berhasil diperbarui',
-            data: {
-                TaskUpdate: { title: task.title, description: task.description, status: task.status, deadline: task.deadline},
-            }
-        })
-        response.code(200);
-        return response;
+    tasks[index] = {
+        ...tasks[index],
+        title,
+        description,
+        status,
+        deadline,
+        updatedAt,
     }
 
+    const task = tasks[index];
+
     const response = h.response({
+        status: 'success',
+        message: 'Catatan berhasil diperbarui',
+        data: {
+            TaskUpdate: { title: task.title, description: task.description, status: task.status, deadline: task.deadline},
+        }
+    })
+    response.code(200);
+    return response;
+  
+/*     const response = h.response({
         status: 'fail',
         message: 'Catatan gagal diperbarui',
     })
     response.code(400);
-    return response;
+    return response; */
 }
 
 const deleteTasks = (request, h) => {
