@@ -41,7 +41,7 @@ const getAllTasks = (request, h) => {
 
     const filteredBooks = tasks.filter(tasks => 
         (title !== undefined ? tasks.title.toLowerCase().includes(title.toLowerCase()) : true) &&
-        (status !== undefined ? tasks.status : true)
+        (status !== undefined ? tasks.status.toLowerCase().includes(status.toLowerCase()) : true)
     );
 
     const response = h.response({
@@ -79,7 +79,14 @@ const getSpecificTasks = (request, h) => {
 
 const updateTask = (request, h) => {
     const { taskId } = request.params;
+
     const index = tasks.findIndex((task) => task.id === taskId);
+    if(index === -1) {
+        const response = h.response({
+            status: 'fail',
+            message: 'Catatan tidak ditemukan',
+        })
+    }
     
     const { title = tasks[index].title, description = tasks[index].description, status = tasks[index].status, deadline = tasks[index].deadline } = request.payload || {};
         
@@ -100,18 +107,12 @@ const updateTask = (request, h) => {
         status: 'success',
         message: 'Catatan berhasil diperbarui',
         data: {
-            TaskUpdate: { title: task.title, description: task.description, status: task.status, deadline: task.deadline},
+            taskUpdate: { title: task.title, description: task.description, status: task.status, deadline: task.deadline},
         }
     })
     response.code(200);
     return response;
   
-/*     const response = h.response({
-        status: 'fail',
-        message: 'Catatan gagal diperbarui',
-    })
-    response.code(400);
-    return response; */
 }
 
 const deleteTasks = (request, h) => {
