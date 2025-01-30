@@ -1,64 +1,77 @@
 const { nanoid } = require('nanoid');
 const tasks = require('./task');
+const db = require('./db');
 
-const addTasksHandler = (request, h) => {
-    const { title = "No Title", description = "No Description", status = "To-Do", deadline = new Date().toISOString() } = request.payload || {};
+const addTasksHandler = async(request, h) => {
 
-    const id = nanoid(16);
-    const createdAt = new Date().toISOString();
-    const updatedAt = createdAt;
-    const formattedDeadline = new Date(deadline).toISOString();
+    try {
+        const { title = "No Title", description = "No Description", status = "To-Do", deadline = new Date().toISOString() } = request.payload || {};
 
-    const newTask = {
-        id, title, description, status, deadline: formattedDeadline, createdAt, updatedAt,
-    }
-
-    tasks.push(newTask);
-    const task = tasks.filter((task) => task.id === id);
-
-    if(task !== undefined) {
+        const id = nanoid(16);
+        const createdAt = new Date().toISOString();
+        const updatedAt = createdAt;
+        const formattedDeadline = new Date(deadline).toISOString();
+    
+        const [result] = await db.query(`INSERT INTO tasks_data (id, title, description, status, deadline, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)`, [id, title, description, status, formattedDeadline, createdAt, updatedAt]);
+    
+        if(result.affectedRows === 1) {
+            const response = h.response({
+                status: 'success',
+                message: 'Task berhasil ditambahkan',
+                data: {
+                    taskId: id,
+                }
+            })
+            response.code(201);
+            return response;
+        }
+    
         const response = h.response({
-            status: 'success',
-            message: 'Task berhasil ditambahkan',
-            data: {
-                taskId: id,
-            }
+            status: 'fail',
+            message: 'Gagal menambahkan catatan',
         })
-        response.code(201);
+        response.code(400);
         return response;
-    }
-
-    const response = h.response({
-        status: 'fail',
-        message: 'Gagal menambahkan catatan',
-    })
-    response.code(400);
-    return response;
+    
+    } catch(error) {
+        console.error(error);
+    } 
 }
 
-const getAllTasks = (request, h) => {
+const getAllTasks = async(request, h) => {
     const { title, status } = request.query;
 
-    const filteredBooks = tasks.filter(tasks => 
-        (title !== undefined ? tasks.title.toLowerCase().includes(title.toLowerCase()) : true) &&
-        (status !== undefined ? tasks.status.toLowerCase().includes(status.toLowerCase()) : true)
-    );
+    let sqlQuery = `SELECT title, description, status, deadline FROM tasks_data WHERE 1=1`;
+    let queryParams = [];
+
+    if(title !== undefined) {
+        sqlQuery += ` AND title LIKE ?`;
+        queryParams.push(`%${title}%`);
+    }
+
+    if(status !== undefined) {
+        sqlQuery += ` AND status LIKE ?`;
+        queryParams.push(`%${status}%`);
+    }
+
+    const [result] = await db.query(sqlQuery, queryParams);
 
     const response = h.response({
         status: 'success',
         data: {
-            tasks: filteredBooks.map(({ title, description, status, deadline }) => ({ title, description, status, deadline })),
+            tasks: result.map(({ title, description, status, deadline }) => ({ title, description, status, deadline })),
         }
     });
     response.code(200);
     return response;
 }
 
-const getSpecificTasks = (request, h) => {
+const getSpecificTasks = async(request, h) => {
     const { taskId } = request.params;
-    const task = tasks.filter((task) => task.id === taskId)[0];
 
-    if(task !== undefined) {
+    const [task] = await db.query(`SELECT * FROM tasks_data WHERE id = ?`, [taskId]);
+
+    if(task.length == 1) {
         const response = h.response({
             status: 'success',
             data: {
@@ -77,37 +90,31 @@ const getSpecificTasks = (request, h) => {
     return response;
 }
 
-const updateTask = (request, h) => {
+const updateTask = async(request, h) => {
     const { taskId } = request.params;
+    
+    const [task] = await db.query(`SELECT * FROM tasks_data WHERE id = ?`, [taskId]);
 
-    const index = tasks.findIndex((task) => task.id === taskId);
-    if(index === -1) {
+    if(!task) {
         const response = h.response({
             status: 'fail',
             message: 'Catatan tidak ditemukan',
         })
+        response.code(404);
+        return response;
     }
     
-    const { title = tasks[index].title, description = tasks[index].description, status = tasks[index].status, deadline = tasks[index].deadline } = request.payload || {};
+    const { title = task[0].title, description = task[0].description, status = task[0].status, deadline = task[0].deadline } = request.payload || {};
         
     const updatedAt = new Date().toISOString();
 
-    tasks[index] = {
-        ...tasks[index],
-        title,
-        description,
-        status,
-        deadline,
-        updatedAt,
-    }
-
-    const task = tasks[index];
+    await db.query(`UPDATE tasks_data SET title = ?, description = ?, status = ?, deadline = ?, updatedAt = ? WHERE id = ?`, [title, description, status, deadline, updatedAt, taskId]);
 
     const response = h.response({
         status: 'success',
         message: 'Catatan berhasil diperbarui',
         data: {
-            taskUpdate: { title: task.title, description: task.description, status: task.status, deadline: task.deadline},
+            taskUpdate: { title, description, status, deadline },
         }
     })
     response.code(200);
@@ -115,27 +122,22 @@ const updateTask = (request, h) => {
   
 }
 
-const deleteTasks = (request, h) => {
+const deleteTasks = async(request, h) => {
     const { taskId } = request.params;
-    const index = tasks.findIndex((task) => task.id === taskId);
+    const [task] = await db.query(`DELETE FROM tasks_data WHERE id = ?`, [taskId]);
 
-    if(index !== -1) {
-        tasks.splice(index, 1);
-        const task = tasks.filter((task) => task.id === taskId)[0];
-
-        if(task === undefined) {
-            const response = h.response({
-                status: 'success',
-                message: 'Catatan berhasil dihapus'
-            })
-            response.code(200);
-            return response;
-        }
+    if(task.affectedRows === 1) {
+        const response = h.response({
+            status: 'success',
+            message: 'Catatan berhasil dihapus'
+        })
+        response.code(200);
+        return response;
     }
 
     const response = h.response({
-        status: 'fail',
-        message: 'Catatan gagal dihapus',
+    status: 'fail',
+    message: 'Catatan gagal dihapus',
     })
     response.code(400);
     return response;
