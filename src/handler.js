@@ -1,9 +1,151 @@
 const { nanoid } = require('nanoid');
-const tasks = require('./task');
 const db = require('./db');
+const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
+
+const GenerateToken = (user) => {
+    const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    return token;
+}
+
+const signUp = async(request, h) => {
+    const { name, email, password } = request.payload;
+    
+    const [existingUser] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
+
+    if(existingUser.length > 0) {
+        const response = h.response({
+            status: 'fail',
+            message: 'Gagal untuk menambahkan, email sudah digunakan',
+        });
+        response.code(400);
+        return response;
+    };
+
+    const id = nanoid(16);
+    
+    const [result] = await db.query('INSERT INTO users(id, name, email, password) VALUES(?, ?, ?, ?)', [id, name, email, password]);
+
+    if(result.affectedRows === 1) {
+        const response = h.response({
+            status: 'success',
+            message: 'User berhasil ditambahkan',
+            data: {
+                name: name,
+                email: email,
+            }
+        })
+        response.code(201);
+        return response;
+    }
+
+    const response = h.response({
+        status: 'fail',
+        message: 'User gagal ditambahkan',
+    })
+    response.code(400);
+    return response;
+}
+
+const signIn = async(request, h) => {
+    const { email, password } = request.payload;
+
+    const [existingUser] = await db.query(`SELECT * FROM users WHERE email = ? AND password = ?`, [email, password]);
+
+    if(existingUser.length === 1) {
+        const token = GenerateToken(existingUser);
+
+        const response = h.response({
+            status: 'success',
+            message: 'Berhasil login ke user',
+            data: {
+                user: {
+                    name: existingUser[0].name,
+                    email: existingUser[0].email,
+                }
+            },
+            token: token,
+        })
+        response.code(200);
+        return response;
+    }
+
+    const response = h.response({
+        status: 'fail',
+        message: 'Gagal login ke user, email atau password salah',
+    })
+    response.code(404);
+    return response;
+}
+
+const forgotPassword = async(request, h) => {
+    const { email } = request.payload;
+
+    const [existingEmail] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
+
+    if(existingEmail.length === 1) {
+        const codeOTP = nanoid(5);
+        await db.query(`INSERT INTO codeotp(email, code) VALUES(?, ?)`, [email, codeOTP]);
+
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS,
+            }
+        })
+
+        await transporter.sendMail({
+            from: 'Sistem Manajemen Tugas',
+            to: email,
+            subject: `OTP Verification`,
+            text: `This is your Code OTP ${codeOTP}, don't share it with someone except you`,
+        });
+
+        const response = h.response({
+            status: 'success',
+            message: 'Periksa email anda untuk reset kata sandi'
+        })
+        response.code(200);
+        return response;
+    }
+
+    const response = h.response({
+        status: 'fail',
+        message: 'Email tidak ditemukan, periksa kembali',
+    })
+    response.code(404);
+    return response;
+}
+
+const otpVerification = async(request, h) => {
+    const { codeOTP, newPassword } = request.payload;
+
+    const [existingOTP] = await db.query(`SELECT * FROM codeotp WHERE code = ?`, [codeOTP]);
+    console.log(existingOTP)
+
+    if(existingOTP.length > 0) {
+        const [existingUser] = await db.query(`SELECT * FROM users WHERE email = ?`, [existingOTP[0].email]);
+        console.log(existingUser)
+        await db.query(`UPDATE users SET password = ? WHERE email = ?`, [newPassword, existingUser[0].email]);
+
+        const response = h.response({
+            status: 'success',
+            message: 'Password berhasil direset',
+        })
+        response.code(200);
+        return response;
+    }
+
+    const response = h.response({
+        status: 'fail',
+        message: 'Invalid Code OTP',
+    })
+    response.code(404);
+    return response;
+}
 
 const addTasksHandler = async(request, h) => {
-
     try {
         const { title = "No Title", description = "No Description", status = "To-Do", deadline = new Date().toISOString() } = request.payload || {};
 
@@ -143,4 +285,4 @@ const deleteTasks = async(request, h) => {
     return response;
 }
 
-module.exports = { addTasksHandler, getAllTasks, getSpecificTasks, updateTask, deleteTasks };
+module.exports = { addTasksHandler, getAllTasks, getSpecificTasks, updateTask, deleteTasks, signUp, signIn, forgotPassword, otpVerification };
