@@ -1,4 +1,4 @@
-const { addTasksHandler, getAllTasks, getSpecificTasks, deleteTasks, updateTask, signUp, signIn, forgotPassword, otpVerification, logOut } = require("./handler")
+const { addTasksHandler, getAllTasks, getSpecificTasks, deleteTasks, updateTask, signUp, signIn, forgotPassword, otpVerification, logOut, AccessValidation } = require("./handler")
 
 const routes = [
     {
@@ -29,26 +29,41 @@ const routes = [
     {
         method: 'POST',
         path: '/tasks',
+        options: {
+            pre: [{ method: AccessValidation }]
+        },
         handler: addTasksHandler,
     },
     {
         method: 'GET',
         path: '/tasks',
+        options: {
+            pre: [{ method: AccessValidation }]
+        },
         handler: getAllTasks,
     },
     {
         method: 'GET',
         path: '/tasks/{taskId}',
+        options: {
+            pre: [{ method: AccessValidation }]
+        },
         handler: getSpecificTasks,
     },
     {
         method: 'PUT',
         path: '/tasks/{taskId}',
+        options: {
+            pre: [{ method: AccessValidation }]
+        },
         handler: updateTask,
     },
     {
         method: 'DELETE',
         path: '/tasks/{taskId}',
+        options: {
+            pre: [{ method: AccessValidation }]
+        },
         handler: deleteTasks,
     },
 ]

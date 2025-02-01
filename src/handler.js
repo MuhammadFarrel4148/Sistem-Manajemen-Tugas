@@ -8,6 +8,44 @@ const GenerateToken = (user) => {
     return token;
 }
 
+const AccessValidation = async(request, h) => {
+    const authorization = request.headers.authorization;
+
+    if(!authorization) {
+        const response = h.respone({
+            status: 'fail',
+            message: 'Unauthorized',
+        })
+        response.code(400);
+        return response.takeover();
+    }
+
+    const token = authorization.split(' ')[1];
+    const [isBlacklist] = await db.query(`SELECT * FROM tokenblacklist WHERE token = ?`, [token]);
+
+    if(isBlacklist.length > 0) {
+        const response = h.response({
+            status: 'fail',
+            message: 'Unauthorized',
+        })
+        response.code(400);
+        return response.takeover();
+    };
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        request.auth = { credentials: decoded};
+        return h.continue;
+    } catch(error) {
+        const response = h.response({
+            status: 'fail',
+            message: 'Unauthorized',
+        })
+        response.code(400);
+        return response.takeover();
+    }
+}
+
 const signUp = async(request, h) => {
     const { username, email, password } = request.payload;
     
@@ -329,4 +367,4 @@ const deleteTasks = async(request, h) => {
     return response;
 }
 
-module.exports = { addTasksHandler, getAllTasks, getSpecificTasks, updateTask, deleteTasks, signUp, signIn, forgotPassword, otpVerification, logOut };
+module.exports = { addTasksHandler, getAllTasks, getSpecificTasks, updateTask, deleteTasks, signUp, signIn, forgotPassword, otpVerification, logOut, AccessValidation };
