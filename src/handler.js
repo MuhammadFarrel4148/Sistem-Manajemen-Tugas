@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 
 const GenerateToken = (user) => {
-    const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ id: user[0].id, email: user[0].email }, process.env.JWT_SECRET, { expiresIn: '1h' });
     return token;
 }
 
@@ -228,6 +228,8 @@ const logOut = async(request, h) => {
 }
 
 const addTasksHandler = async(request, h) => {
+    const userId = request.auth.credentials.id;
+
     try {
         const { title = "No Title", description = "No Description", status = "To-Do", deadline = new Date().toISOString() } = request.payload || {};
 
@@ -236,7 +238,7 @@ const addTasksHandler = async(request, h) => {
         const updatedAt = createdAt;
         const formattedDeadline = new Date(deadline).toISOString();
     
-        const [result] = await db.query(`INSERT INTO tasks_data (id, title, description, status, deadline, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)`, [id, title, description, status, formattedDeadline, createdAt, updatedAt]);
+        const [result] = await db.query(`INSERT INTO tasks_data (id, userId, title, description, status, deadline, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [id, userId, title, description, status, formattedDeadline, createdAt, updatedAt]);
     
         if(result.affectedRows === 1) {
             const response = h.response({
