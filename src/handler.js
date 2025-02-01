@@ -9,7 +9,7 @@ const GenerateToken = (user) => {
 }
 
 const signUp = async(request, h) => {
-    const { name, email, password } = request.payload;
+    const { username, email, password } = request.payload;
     
     const [existingUser] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
 
@@ -24,14 +24,14 @@ const signUp = async(request, h) => {
 
     const id = nanoid(16);
     
-    const [result] = await db.query('INSERT INTO users(id, name, email, password) VALUES(?, ?, ?, ?)', [id, name, email, password]);
+    const [result] = await db.query('INSERT INTO users(id, username, email, password) VALUES(?, ?, ?, ?)', [id, username, email, password]);
 
     if(result.affectedRows === 1) {
         const response = h.response({
             status: 'success',
             message: 'User berhasil ditambahkan',
             data: {
-                name: name,
+                username: username,
                 email: email,
             }
         })
@@ -60,7 +60,7 @@ const signIn = async(request, h) => {
             message: 'Berhasil login ke user',
             data: {
                 user: {
-                    name: existingUser[0].name,
+                    username: existingUser[0].username,
                     email: existingUser[0].email,
                 }
             },
@@ -122,12 +122,11 @@ const otpVerification = async(request, h) => {
     const { codeOTP, newPassword } = request.payload;
 
     const [existingOTP] = await db.query(`SELECT * FROM codeotp WHERE code = ?`, [codeOTP]);
-    console.log(existingOTP)
 
     if(existingOTP.length > 0) {
         const [existingUser] = await db.query(`SELECT * FROM users WHERE email = ?`, [existingOTP[0].email]);
-        console.log(existingUser)
         await db.query(`UPDATE users SET password = ? WHERE email = ?`, [newPassword, existingUser[0].email]);
+        await db.query(`DELETE FROM codeotp WHERE code = ?`, [codeOTP]);
 
         const response = h.response({
             status: 'success',
@@ -143,6 +142,51 @@ const otpVerification = async(request, h) => {
     })
     response.code(404);
     return response;
+}
+
+const logOut = async(request, h) => {
+    const authorization = request.headers.authorization;
+
+    if(!authorization) {
+        const response = h.response({
+            status: 'fail',
+            message: 'Unauthorized',
+        })
+        response.code(400);
+        return response;
+    }
+
+    const token = authorization.split(' ')[1];
+    const [isBlacklist] = await db.query(`SELECT * FROM tokenblacklist WHERE token = ?`, [token]);
+
+    if(isBlacklist.length > 0) {
+        const response = h.response({
+            status: 'fail',
+            message: 'Unauthorized',
+        })
+        response.code(400);
+        return response;
+    }
+
+    try {
+        jwt.verify(token, process.env.JWT_SECRET);
+        await db.query(`INSERT INTO tokenblacklist(token) VALUES(?)`, [token]);
+
+        const response = h.response({
+            status: 'success',
+            message: 'Berhasil logout',
+        })
+        response.code(200);
+        return response;
+
+    } catch(error) {
+        const response = h.response({
+            status: 'fail',
+            message: 'Unauthorized',
+        })
+        response.code(400);
+        return response;
+    }
 }
 
 const addTasksHandler = async(request, h) => {
@@ -285,4 +329,4 @@ const deleteTasks = async(request, h) => {
     return response;
 }
 
-module.exports = { addTasksHandler, getAllTasks, getSpecificTasks, updateTask, deleteTasks, signUp, signIn, forgotPassword, otpVerification };
+module.exports = { addTasksHandler, getAllTasks, getSpecificTasks, updateTask, deleteTasks, signUp, signIn, forgotPassword, otpVerification, logOut };

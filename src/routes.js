@@ -1,4 +1,4 @@
-const { addTasksHandler, getAllTasks, getSpecificTasks, deleteTasks, updateTask, signUp, signIn, forgotPassword, otpVerification } = require("./handler")
+const { addTasksHandler, getAllTasks, getSpecificTasks, deleteTasks, updateTask, signUp, signIn, forgotPassword, otpVerification, logOut } = require("./handler")
 
 const routes = [
     {
@@ -20,6 +20,11 @@ const routes = [
         method: 'POST',
         path: '/inputotp',
         handler: otpVerification,
+    },
+    {
+        method: 'POST',
+        path: '/logout',
+        handler: logOut,
     },
     {
         method: 'POST',
