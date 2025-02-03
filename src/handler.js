@@ -397,6 +397,20 @@ const updateTask = async(request, h) => {
         }
         
         const { title = task[0].title, description = task[0].description, status = task[0].status, deadline = task[0].deadline } = request.payload || {};
+
+        if(status === 'Completed') {
+            await db.query('DELETE FROM tasks_data WHERE id = ?', [taskId]);
+
+            const response = h.response({
+                status: 'success',
+                message: 'Catatan berhasil diperbarui',
+                data: {
+                    taskUpdate: { title, description, status, deadline},
+                }
+            })
+            response.code(200);
+            return response;
+        }
             
         const updatedAt = new Date().toISOString();
     
